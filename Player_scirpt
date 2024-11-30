@@ -1,0 +1,122 @@
+class_name MainChar
+extends CharacterBody2D
+
+@onready var fire_timer = $Timer
+@onready var death = $death
+@onready var tracking_handler = $"../TrackingHandler" as TrackingHandler
+@onready var damage = $Damage
+@export var fire_rate : float = 1.0
+@export var projectile_Resource : ProjectileBaseResource = null
+var can_fire = true
+
+const BULLET = preload("res://Bullet.tscn")
+
+const SPEED = 400.0
+const JUMP_VELOCITY = -350.0
+const MAX_JUMPS = 1
+var bullet = preload("res://player_bullet.tscn")
+# Get the gravity from the project settings
+var gravity = ProjectSettings.get_setting("physics/2d/default_gravity")
+@onready var sprite_2d = $Sprite2D
+@onready var lazer = preload("res://lazer.tscn")
+var jumps_remaining = MAX_JUMPS
+var maxhealth: int = 10
+var health: int = 10
+var is_attacking = false
+
+func _ready():
+	fire_timer.connect("timeout", set_can_fire)
+	fire_timer.wait_time = fire_rate
+	
+func _physics_process(delta):
+	# Handle attack input (assuming gun.shoot() is a valid function)
+	#if Input.is_action_pressed("attack"):
+		#gun.shoot()	
+	# Animations based on movement and jump state
+	if abs(velocity.x) > 1 and is_on_floor():
+		sprite_2d.play("running")
+	elif is_on_floor():
+		sprite_2d.play("idle")
+	else:
+		if jumps_remaining == MAX_JUMPS:
+			sprite_2d.play("jumping")
+		else:
+			sprite_2d.play("double_jump")
+
+	# Apply gravity
+	if not is_on_floor():
+		velocity.y += gravity * delta
+
+	# Handle jump
+	if is_on_floor(): 
+		jumps_remaining = MAX_JUMPS
+
+	if Input.is_action_just_pressed("jump") and jumps_remaining > 0:
+		velocity.y = JUMP_VELOCITY
+		sprite_2d.pause()
+
+	jumps_remaining -= 1  # Decrement jumps_remaining after each jump
+
+	# Movement and deceleration
+	var direction = Input.get_axis("left", "right")
+
+	if direction:
+		velocity.x = direction * SPEED
+	else:
+		velocity.x = move_toward(velocity.x, 0, 50)
+
+	# Update facing direction
+	var isLeft = velocity.x < 0
+	var isRight = velocity.x > 0
+
+	if isLeft:
+		sprite_2d.flip_h = true
+	elif isRight:
+		sprite_2d.flip_h = false
+
+
+
+
+	
+
+	move_and_slide()
+
+func dmg_player():
+	if health >= 1:
+		health -= 1
+		print(health)
+		damage.play()
+	else:
+		die()
+		death.play()
+
+func die():
+	get_tree().change_scene_to_file("res://scene/LoseMenu.tscn")
+func _on_area_2d_body_entered(body):
+	if body.is_in_group("battery"):
+		health +=  1
+
+
+func fire_projectile() -> void:
+	if Input.is_action_just_pressed("fire") and can_fire == true:
+		can_fire = false
+		fire_timer.start()
+		print("boom")
+		var Bullet_direction : Vector2 = (get_global_mouse_position()-global_position).normalized()
+		#if isRight : Bullet_direction *=(-1)
+		#if isLeft : Bullet_direction *=(-1) 
+			
+		print(Bullet_direction)
+		SignalBus.emit_fire(projectile_Resource, position, Bullet_direction)
+	
+	
+func set_can_fire() -> void :
+	can_fire = true
+
+
+
+func _health():
+	health +=  1
+
+
+
